@@ -233,7 +233,7 @@ describe('prop', function () {
         }
       }
     })
-    expect('Use a factory function to return the default value').toHaveBeenWarned()
+    expect('use a factory function to return the default value').toHaveBeenWarned()
     expect(getWarnCount()).toBe(2)
   })
 
@@ -364,6 +364,13 @@ describe('prop', function () {
       expect('Expected custom type').toHaveBeenWarned()
     })
 
+    it('multiple types', function () {
+      makeInstance([], [Array, Number, Boolean])
+      expect(getWarnCount()).toBe(0)
+      makeInstance({}, [Array, Number, Boolean])
+      expect('Expected Array, Number, Boolean').toHaveBeenWarned()
+    })
+
     it('custom validator', function () {
       makeInstance(123, null, function (v) {
         return v === 123
@@ -390,12 +397,38 @@ describe('prop', function () {
       expect('Expected String').toHaveBeenWarned()
     })
 
+    it('multiple types + custom validator', function () {
+      makeInstance(123, [Number, String, Boolean], function (v) {
+        return v === 123
+      })
+      expect(getWarnCount()).toBe(0)
+      makeInstance(123, [Number, String, Boolean], function (v) {
+        return v === 234
+      })
+      expect('custom validator check failed').toHaveBeenWarned()
+      makeInstance(123, [String, Boolean], function (v) {
+        return v === 123
+      })
+      expect('Expected String, Boolean').toHaveBeenWarned()
+    })
+
     it('type check + coerce', function () {
       makeInstance(123, String, null, String)
       expect(getWarnCount()).toBe(0)
       makeInstance('123', Number, null, Number)
       expect(getWarnCount()).toBe(0)
       makeInstance('123', Boolean, null, function (val) {
+        return val === '123'
+      })
+      expect(getWarnCount()).toBe(0)
+    })
+
+    it('multiple types + custom validator', function () {
+      makeInstance(123, [String, Boolean, Number], null, String)
+      expect(getWarnCount()).toBe(0)
+      makeInstance('123', [String, Boolean, Number], null, Number)
+      expect(getWarnCount()).toBe(0)
+      makeInstance('123', [String, Boolean, Function], null, function (val) {
         return val === '123'
       })
       expect(getWarnCount()).toBe(0)
@@ -626,18 +659,20 @@ describe('prop', function () {
   it('treat boolean props properly', function () {
     var vm = new Vue({
       el: el,
-      template: '<comp v-ref:child prop-a></comp>',
+      template: '<comp v-ref:child prop-a prop-b="prop-b"></comp>',
       components: {
         comp: {
           props: {
             propA: Boolean,
-            propB: Boolean
+            propB: Boolean,
+            propC: Boolean
           }
         }
       }
     })
     expect(vm.$refs.child.propA).toBe(true)
-    expect(vm.$refs.child.propB).toBe(false)
+    expect(vm.$refs.child.propB).toBe(true)
+    expect(vm.$refs.child.propC).toBe(false)
   })
 
   it('detect possible camelCase prop usage', function () {
@@ -676,11 +711,13 @@ describe('prop', function () {
 
   it('non reactive values passed down as prop should not be converted', function (done) {
     var a = Object.freeze({
-      msg: 'hello'
+      nested: {
+        msg: 'hello'
+      }
     })
     var parent = new Vue({
       el: el,
-      template: '<comp :a="a"></comp>',
+      template: '<comp :a="a.nested"></comp>',
       data: {
         a: a
       },
@@ -693,10 +730,87 @@ describe('prop', function () {
     var child = parent.$children[0]
     expect(child.a.msg).toBe('hello')
     expect(child.a.__ob__).toBeUndefined() // should not be converted
-    parent.a = Object.freeze({ msg: 'yo' })
+    parent.a = Object.freeze({
+      nested: {
+        msg: 'yo'
+      }
+    })
     Vue.nextTick(function () {
       expect(child.a.msg).toBe('yo')
       expect(child.a.__ob__).toBeUndefined()
+      done()
+    })
+  })
+
+  it('inline prop values should be converted', function (done) {
+    var vm = new Vue({
+      el: el,
+      template: '<comp :a="[1, 2, 3]"></comp>',
+      components: {
+        comp: {
+          props: ['a'],
+          template: '<div v-for="i in a">{{ i }}</div>'
+        }
+      }
+    })
+    expect(vm.$el.textContent).toBe('123')
+    vm.$children[0].a.pop()
+    Vue.nextTick(function () {
+      expect(vm.$el.textContent).toBe('12')
+      done()
+    })
+  })
+
+  // #2549
+  it('mutating child prop binding should be reactive', function (done) {
+    var vm = new Vue({
+      el: el,
+      template: '<comp :list="list"></comp>',
+      data: {
+        list: [1, 2, 3]
+      },
+      components: {
+        comp: {
+          props: ['list'],
+          template: '<div v-for="i in list">{{ i }}</div>',
+          created: function () {
+            this.list = [2, 3, 4]
+          }
+        }
+      }
+    })
+    expect(vm.$el.textContent).toBe('234')
+    vm.$children[0].list.push(5)
+    Vue.nextTick(function () {
+      expect(vm.$el.textContent).toBe('2345')
+      done()
+    })
+  })
+
+  it('prop default value should be reactive', function (done) {
+    var vm = new Vue({
+      el: el,
+      template: '<comp :list="list"></comp>',
+      data: {
+        list: undefined
+      },
+      components: {
+        comp: {
+          props: {
+            list: {
+              default: function () {
+                return [2, 3, 4]
+              }
+            }
+          },
+          template: '<div v-for="i in list">{{ i }}</div>'
+        }
+      }
+    })
+    expect(vm.$el.textContent).toBe('234')
+    vm.$children[0].list.push(5)
+    Vue.nextTick(function () {
+      expect(vm.$el.textContent).toBe('2345')
       done()
     })
   })

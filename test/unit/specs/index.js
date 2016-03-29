@@ -21,9 +21,6 @@ scope.getWarnCount = function () {
 }
 
 function hasWarned (msg) {
-  if (!_.warn.calls) {
-    console.warn('make sure to call before tests.')
-  }
   var count = _.warn.calls.count()
   var args
   while (count--) {
@@ -67,13 +64,6 @@ beforeEach(function () {
         }
       }
     }
-  })
-})
-
-describe('custom matcher', function () {
-  it('should work', function () {
-    _.warn('lol')
-    expect('lol').toHaveBeenWarned()
   })
 })
 

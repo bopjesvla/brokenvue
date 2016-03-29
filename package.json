@@ -1,6 +1,6 @@
 {
   "name": "vue",
-  "version": "1.0.18",
+  "version": "1.0.20",
   "author": "Evan You <yyx990803@gmail.com>",
   "license": "MIT",
   "description": "Simple, Fast & Composable MVVM for building interactive interfaces",
@@ -35,7 +35,8 @@
     "cover": "karma start build/karma.cover.config.js",
     "sauce": "karma start build/karma.sauce.config.js",
     "sauce-all": "npm run sauce && npm run sauce -- 1 && npm run sauce -- 2",
-    "release": "bash build/release.sh"
+    "release": "bash build/release.sh",
+    "release-csp": "bash build/release-csp.sh"
   },
   "dependencies": {
     "envify": "^3.4.0"
